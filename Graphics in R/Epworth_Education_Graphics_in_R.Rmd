@@ -1,0 +1,965 @@
+---
+title: 'Graphics_R_Epworth_Education_Program'
+output:
+  html_document: default
+  self_contained: true
+  pdf_document: default
+  github_document:
+date: '2025-10-15'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## Installing Packages
+These include functions that you will need to execute basic commands like importing you data or creating basic plots, exporting data.You only have to install these ONCE, not every time you open R (thankfully!). In fact, if you try and install them more than once you will effectively just be updating the package (which is fine just not necessary).
+
+#{r packages}
+install.packages("readxl") # needed to import data from excel sheets
+install.packages("tidyverse") # meta-package with other packages I often use
+install.packages("tidyr") # for data tidying
+install.packages("lubridate") # for data wrangling
+install.packages("writexl") # for exporting to excel
+install.packages("ggplot2") # visualisation, plots
+install.packages("psych") # psych stats stuff :)
+install.packages("openxlsx") # used sometimes when readxl doesn't work
+install.packages("dplyr") # to write scripts in certain style
+
+
+## Load Relevant Libraries
+You can think of intalling packages like downloading an app, once it's done it will be there. This doesn't automatically mean the app will open, you still have to click on it. In R, you have to tell the package to open by loading it in the environment. You do have to load packages EVERY time you use R Studio. If you stay in the same session and don't exit R, you don't have to load them.
+
+```{r libraries}
+library(readxl)
+library(tidyverse)
+library(tidyr)
+library(lubridate)
+library(writexl)
+library(ggplot2)
+library(psych)
+library(openxlsx)
+library(dplyr)
+```
+
+## Import the dataset
+This is unpublished data that I have collected as part of my PhD looking at mental health after Traumatic Brain Injury. As you can see there >1000 variables, many of which will be included in the analyses for my studies. Today we will only be focusing on a few of these. I will show you how to call on the variables you would like to use.
+
+```{r transdiagnostic data}
+df <- read_excel("HiTOP_followup_data.xlsx") # I called this df but can call it something more meaningful if you like. 
+view(df) # lets have a look at what our imported dataset looks like
+```
+
+## Calling on specific variables
+I'm sure you don't want to go searching through 1000 variables, so instead you can call on the variable you need and then work with it. You can also perform functions on a vector of variables you call on (1). Alternatively, you can filter a subset of variables that you would like to work with (2). I'll show you both.
+
+```{r calling on variables}
+# calling on variables (1)
+df$mini_mdd_current # what does our Major Depressive Disorder variable contain? Let's have a quick look by printing it here.
+df$mini_alcohol_current # AUD diagnoses
+df$mini_ptsd_current #PTSD diagnoses
+```
+
+Charting Your Way: Why Visualisation?
+
+Charts can help spot trends, outliers, and relationships quickly
+Reduce load on our cognitive processes, e.g., visual processing and memory. For example, this list of z scores is not easy to digest. What is the distribution, outliers?
+
+ID	General Problems
+1	-0.23
+2	1.12
+3	-0.45
+4	0.87
+5	-1.05
+6	0.23
+7	1.45
+8	-0.78
+9	0.56
+10	0.02
+
+
+## Graphing the data
+There are some things to consider (Tufte, 2001): 
+ 1. Show the data
+ 2. Induce the reader to think about the data being presented
+ 3. Avoid distorting the data
+ 4. Present many numbers with minimum ink
+ 5. Make large datasets coherent
+ 6. Encourage the reader to compare different bits of data
+ 
+### 1. Show the data 
+
+Check what they contain by calling on each variable individually (option 1)
+This gives you the frequency of each diagnosis. For this dataset, 1 = NO diagnosis, 2 = YES diagnosis
+```{r}
+table(df$mini_mdd_current)
+table(df$mini_alcohol_current)
+table(df$mini_ptsd_current)
+```
+
+OR Calling on variables altogether as a vector (option 2)
+```{r}
+sapply(df[c("mini_mdd_current", "mini_alcohol_current", "mini_ptsd_current")], table)
+```
+
+## Plot the data using these principles
+Here, we use ggplot to help us visualise the data. We know that graphs are made up of multiple layers, for example, you have the axes, the title, the key, the data points, axis labels etc. 
+
+2. Induce the reader to think about the frequency of diagnoses across each category using ggplot to create a bar chart.
+
+```{r}
+df %>% # calling on our df
+  select(MDD = mini_mdd_current, # elect the variables to plot
+         AUD = mini_alcohol_current,
+         PTSD = mini_ptsd_current) %>%
+  pivot_longer(everything(), names_to = "Diagnosis", values_to = "Status") %>% # changing our data to long format as is bettter for plotting
+  group_by(Diagnosis, Status) %>% # specify which groups to plot and how
+  summarise(Count = n(), .groups = 'drop') %>% 
+  ggplot(aes(x = Diagnosis, y = Count, fill = factor(Status))) + # layer to label things nicely and tell the graph where to overlay the data
+  geom_bar(stat = "identity", position = "dodge") + 
+  labs(fill = "Diagnosed", title = "Current Diagnoses per MINI") + # add a title layer
+  theme_minimal()
+
+```
+
+3. Avoid distorting the data
+
+The original graph produced is not extremely distorted but could be improved. The axis ranges are good but I'll show an example where this can distort the data. 
+
+What I did: 
+Y-axis inflation	- By setting the y-limit to 10,00 (likely way above actual values), you minimise visual differences, making everything look tiny.
+Perception distortion	- Viewers may falsely assume diagnoses are rare or not worth attention.
+Undermines comparison	- Tiny differences become invisible, reducing insight.
+
+```{r}
+
+df %>%
+  select(MDD = mini_mdd_current, 
+         AUD = mini_alcohol_current, 
+         PTSD = mini_ptsd_current) %>%
+  pivot_longer(cols = everything(), 
+               names_to = "Diagnosis", 
+               values_to = "Status") %>%
+  group_by(Diagnosis, Status) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  ggplot(aes(x = Diagnosis, y = Count, fill = factor(Status))) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  coord_cartesian(ylim = c(0, 1000)) +  # artificially large y-axis
+  labs(
+    title = "Deceptively Small Diagnosis Counts!",
+    x = "Disorder",
+    y = "Count (compressed to invisibility)",
+    fill = "Diagnosed"
+  ) +
+  theme_minimal(base_size = 20) +
+  theme(
+    axis.text.x = element_text(size = 30, angle = 45, hjust = 1, face = "bold", color = "red"),
+    axis.title.y = element_text(size = 10, face = "italic"),
+    plot.title = element_text(size = 10, face = "bold", color = "blue")
+  )
+
+```
+
+### BONUS: stratify the diagnoses by age bracket and make look pretty :) 
+
+```{r}
+# first need to specify the age groups
+df$age_group <- cut(df$age, breaks = c(18, 30, 45, 60, 100), 
+                    labels = c("18–29", "30–44", "45–59", "60+"), 
+                    right = FALSE)
+df %>%
+  select(age_group, 
+         MDD = mini_mdd_current, 
+         AUD = mini_alcohol_current, 
+         PTSD = mini_ptsd_current) %>%
+  pivot_longer(cols = c(MDD, AUD, PTSD), names_to = "Diagnosis", values_to = "Status") %>%
+  group_by(age_group, Diagnosis, Status) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  ggplot(aes(x = Diagnosis, y = Count, fill = factor(Status))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~age_group) +
+  labs(title = "Current Diagnoses by Age Group", fill = "Diagnosed") +
+  theme_minimal()
+```
+
+
+## Problem 1: Handling Missing Diagnoses in the data
+WHile there are many methods to handle missing data, for today's purpose we will be transparent about the freqwuency of missingness (achieved above). 
+
+### Solution: We will then filter the data so it is clean prior to analysis. 
+
+```{r}
+df_clean <- df %>%
+  filter(!is.na(mini_mdd_current) & # filter the dataset to only include values WITHOUT NAs
+         !is.na(mini_alcohol_current) & 
+         !is.na(mini_ptsd_current))
+
+# Total rows before cleaning
+total_rows <- nrow(df)
+
+# Total rows after removing missing
+clean_rows <- nrow(df_clean)
+
+# Rows with any missing in key diagnosis variables
+missing_rows <- total_rows - clean_rows
+```
+
+## Prepare data for plotting
+
+```{r}
+plot_data <- df_clean %>%
+  select(MDD = mini_mdd_current, 
+         AUD = mini_alcohol_current, 
+         PTSD = mini_ptsd_current) %>%
+  pivot_longer(cols = everything(), 
+               names_to = "Diagnosis", 
+               values_to = "Status") %>%
+  group_by(Diagnosis, Status) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Diagnosis) %>%
+  mutate(Percent = round(100 * Count / sum(Count), 1),
+         Label = paste0(Percent, "%"))
+
+```
+
+## Plot clean dataset 
+
+```{r}
+ggplot(plot_data, aes(x = Diagnosis, y = Count, fill = factor(Status))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = Label), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 5) +
+  scale_fill_manual(values = c("0" = "#999999", "1" = "#0072B2"),
+                    labels = c("Not Diagnosed", "Diagnosed")) +
+  labs(
+    title = "Current Diagnoses (Cleaned Data)",
+    subtitle = paste("Missing data removed: ", missing_rows, " of ", total_rows, " cases (", 
+                     round(100 * missing_rows / total_rows, 1), "%)", sep = ""),
+    x = "Disorder",
+    y = "Count",
+    fill = "Diagnosed"
+  ) +
+  theme_minimal(base_size = 16)
+
+```
+
+# Continuous data: Diagnosing and Curing Outliers
+This is data that has been pre-cleaned so I will not go through this process as it follows principles described above. We gave individuals with TBI an online survey containing a battery of psychological scales. We can use this data to explore severity of different psychopathologies. First, I will visualise it in a few different ways (choose your fave!). Then, I will explore how we can identify outliers visually (and maybe statistically if time!).
+
+For those with further interest, I handled missing data for these variables using mean imputation. I did not delete individuals in a listwise fashion as I needed to preserve power in the sample size as much as possible.
+
+```{r}
+# don't worry about this step - I re-standardised the data as it is a composite psychological score. 
+df$General_Problems <- scale(df$a1_composite_score) # this creates a new variable in the dataset
+
+## what's in our variable of interest
+df$General_Problems
+
+head(df$General_Problems, 10)
+```
+
+NOTE: General Problems is a psychological construct representing an overarching "p-factor" that reflects a general tendency towards experiencing a range of psychological problems. 
+
+### Histogram — Distribution Overview ##
+
+```{r}
+ggplot(df, aes(x = General_Problems)) +
+  geom_histogram(binwidth = 0.5, fill = "#0072B2", color = "white") +
+  labs(title = "Distribution of General Problems",
+       x = "Standardized Score",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(df, aes(x = General_Problems)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.5, fill = "#0073C2FF", color = "white") +
+  geom_density(color = "red", size = 1) +
+  labs(title = "Distribution of General Psychological Problems",
+       x = "Z-score",
+       y = "Density") +
+  theme_minimal()
+
+```
+
+
+## Outlier Detection ##
+Since it's standardised (mean ≈ 0, SD ≈ 1), values beyond ±2 or ±3 SD are often flagged as potential outliers.
+
+### Boxplot — Classic Outlier Detection
+- Outliers are values below Q1 - 1.5 × IQR or above Q3 + 1.5 × IQR
+- These appear as points outside the whiskers
+```{r}
+ggplot(df, aes(y = General_Problems)) +
+  geom_boxplot(fill = "#56B4E9") +
+  labs(title = "Boxplot of General Problems",
+       y = "Standardized Score (Z)") +
+  theme_minimal()
+```
+
+### Density Plot — Smoothed Distribution
+
+```{r}
+ggplot(df, aes(x = General_Problems)) +
+  geom_density(fill = "#56B4E9", alpha = 0.6) +
+  labs(title = "Density of General Problems",
+       x = "Standardized Score",
+       y = "Density") +
+  theme_minimal()
+
+```
+
+### Histogram or Density Plot with Threshold Lines
+Shows where outliers fall relative to the main distribution.
+
+```{r}
+ggplot(df, aes(x = General_Problems)) +
+  geom_histogram(binwidth = 0.5, fill = "#0072B2", color = "white", alpha = 0.7) +
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed", color = "red", size = 1) +
+  labs(title = "Histogram of General Problems with Outlier Thresholds",
+       x = "Standardized Score",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+## Charting Your Way: Plotting Options and Insigntful Decisions ##
+🎨 Intro to ggplot2: Aesthetics & Geoms with General_Problems
+
+### Aesthetics with ggplot2 ###
+Aesthetics:
+aes(colour = “”)
+aes(shape = “”)
+aes(size = )
+aes(alpha = )
+
+### Geometric Objects with ggplot2 ###
+geom_	graphic
+geom_bar	creates a layer with bars
+geom_point	"plots the actual data points (i.e., scatterplot)"
+geom_line	plots a straight line that connects data points
+geom_smooth	"a smooth line (e.g., curvy) that summarises data overall rather than connecting individual points"
+geom_histogram	creates a histogram layer
+geom_boxplot	creates a box-whisker diagram
+geom_density	applies a density plot layer
+
+## Insightful Decisions: Choosing the Right Chart ##
+
+Trends → Line chart/geom_smooth
+Comparisons → Bar chart
+Relationships → Scatterplot
+Distribution → Histogram / Density
+
+## Basic Scatterplot with Aesthetics ##
+geom_point
+
+```{r}
+library(ggplot2)
+ggplot(df, aes(x = General_Problems, y = age, colour = factor(sex), shape = factor(mini_mdd_current))) +
+  geom_point(size = 3, alpha = 0.7) +
+  labs(title = "General Problems by Age and Diagnosis",
+       x = "General Psychological Problems (Z-score)",
+       y = "Age") +
+  scale_shape_manual(values = c(16, 17)) +  # Optional: Customize shapes for 1 and 0
+  theme_minimal()
+
+
+```
+
+✅ What this demonstrates:
+
+aes(colour = gender) – different colors for gender
+
+aes(shape = diagnosis) – different shapes for diagnosis groups
+
+size = 3 – size of the points
+
+alpha = 0.7 – transparency
+
+If you don't have age, gender, or diagnosis, substitute with any categorical and numerical variables you do have.
+
+## Change the aesthetics ##
+geom_point
+
+```{r}
+ggplot(df, aes(x = General_Problems, y = age, 
+               colour = factor(sex),  # Map gender to color
+               shape = factor(mini_mdd_current))) +  # Map diagnosis to shape
+  geom_point(size = 4, alpha = 0.6) +  # Change size and transparency
+  labs(title = "General Problems by Age and Diagnosis",
+       x = "General Psychological Problems (Z-score)",
+       y = "Age") +
+  scale_colour_manual(values = c("1" = "blue", "2" = "pink")) +  # Manually set colors for gender
+  scale_shape_manual(values = c(18, 19)) +  # Customize shapes for diagnosis (1 and 0)
+  theme_minimal() +
+  theme(legend.position = "top")  # Optional: Move the legend to the top
+
+```
+
+## Example Line Chart ## 
+geom_line
+
+```{r}
+# Simple line chart example using geom_line
+ggplot(df, aes(x = age, y = General_Problems)) +
+  geom_line(colour = "blue", size = 1.2) +  # Add a blue line
+  geom_point(size = 3, colour = "red") +  # Add red points on the line
+  labs(title = "Trend of General Problems by Age",
+       x = "Age",
+       y = "General Problems (Z-score)") +
+  theme_minimal()
+
+```
+
+geom_point 
+
+```{r}
+# Scatterplot example
+ggplot(df, aes(x = age, y = General_Problems)) +
+  geom_point(size = 3, colour = "red", alpha = 0.7) +  # Red points with some transparency
+  labs(title = "Scatterplot of General Problems by Age",
+       x = "Age",
+       y = "General Problems (Z-score)") +
+  theme_minimal()
+
+```
+
+
+## Histogram of General Problems ##
+geom_histogram 
+
+```{r}
+ggplot(df, aes(x = General_Problems)) +
+  geom_histogram(binwidth = 0.5, fill = "#0073C2FF", color = "white") +
+  labs(title = "Distribution of General Problems",
+       x = "General Problems (Z-score)",
+       y = "Count") +
+  theme_minimal()
+```
+
+✅ Shows:
+
+Use of geom_histogram
+
+One variable (univariate plot)
+
+Custom binwidth and color aesthetic
+
+## Boxplot with Fill Aesthetic ##
+geom_boxplot 
+
+```{r}
+ggplot(df, aes(x = gender, y = General_Problems, fill = gender)) +
+  geom_boxplot() +
+  labs(title = "General Problems by Gender",
+       x = "Gender",
+       y = "General Problems (Z-score)") +
+  theme_minimal()
+```
+
+✅ Shows:
+
+geom_boxplot
+
+Group comparison using a categorical x-axis
+
+Aesthetic: fill
+
+## Scatterplot with Smoothed Line ##
+geom_point
+geom_smooth
+
+```{r}
+ggplot(df, aes(x = age, y = General_Problems)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "blue") +
+  labs(title = "Relationship Between Age and General Problems",
+       x = "Age",
+       y = "General Problems (Z-score)") +
+  theme_minimal()
+```
+  
+
+✅ Shows:
+
+geom_point for raw data
+
+geom_smooth to show trend line
+
+alpha to soften overlapping points
+
+## Layered Plot Structure Example ##
+geom_histogram
+geom_density
+
+```{r}
+ggplot(df, aes(x = General_Problems)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.5, fill = "skyblue", color = "black") +  # Layer 1
+  geom_density(color = "red", size = 1) +  # Layer 2
+  labs(title = "Layered Plot: Histogram + Density",
+       x = "General Problems (Z-score)",
+       y = "Density") +
+  theme_minimal()
+```
+
+✅ Explains:
+
+Layering in ggplot2 (histogram + density)
+
+..density.. in histogram for proper y-axis alignment
+
+Multiple geoms on one plot
+
+
+## Curing Outliers
+### Option 1: Keep Them (this is what I did in my study).  While it is honest to the data, it can in some cases affect analyses. 
+
+### Option 2: Remove Outliers
+```{r}
+df_no_outliers <- df %>% filter(abs(General_Problems) <= 2)
+```
+
+### Option 3: Run analyses with and without outliers and see if it affects it.
+```{r}
+df <- df %>%
+  mutate(outlier_flag = abs(General_Problems) > 2)
+
+
+df %>%
+  group_by(outlier_flag) %>%
+  summarise(
+    n = n(),
+    mean_gp = mean(General_Problems, na.rm = TRUE),
+    sd_gp = sd(General_Problems, na.rm = TRUE)
+  )
+
+
+ggplot(df, aes(x = General_Problems, fill = outlier_flag)) +
+  geom_histogram(position = "identity", alpha = 0.5, bins = 30) +
+  scale_fill_manual(values = c("FALSE" = "#0072B2", "TRUE" = "#D55E00"),
+                    labels = c("Non-Outliers", "Outliers")) +
+  labs(title = "General Problems Distribution",
+       subtitle = "Showing Impact of Outliers",
+       fill = "Outlier?",
+       x = "General Problems (Z-score)",
+       y = "Count") +
+  theme_minimal()
+```
+
+
+## Synergystic Visualisation: Using Two or More Variables
+###  Boxplots by Group — Compare Across Diagnoses or Gender
+Example: By MDD diagnosis
+
+```{r}
+df_clean$General_Problems <- scale(df_clean$a1_composite_score)
+ggplot(df_clean, aes(x = factor(mini_mdd_current), y = General_Problems)) +
+  geom_boxplot(fill = "#E69F00") +
+  labs(title = "General Problems by MDD Diagnosis",
+       x = "MDD Diagnosis (1 = No, 2 = Yes)",
+       y = "General Problems (Z-Score)") +
+  theme_minimal()
+```
+
+### Violin Plot — Combine Density + Boxplot
+
+```{r}
+ggplot(df_clean, aes(x = factor(mini_mdd_current), y = General_Problems)) +
+  geom_violin(fill = "#009E73", alpha = 0.7) +
+  geom_boxplot(width = 0.1, fill = "white") +
+  labs(title = "General Problems by MDD Diagnosis",
+       x = "MDD Diagnosis",
+       y = "General Problems (Standardized)") +
+  theme_minimal()
+```
+
+### Scatter Plot — General Problems vs Age
+```{r}
+ggplot(df_clean, aes(x = age, y = General_Problems)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "General Problems vs Age",
+       x = "Age",
+       y = "General Problems") +
+  theme_minimal()
+```
+
+### Raincloud Plot (Optional, Modern & Informative)
+
+```{r}
+library(ggdist)
+ggplot(df_clean, aes(x = factor(mini_ptsd_current), y = General_Problems)) +
+  stat_halfeye(adjust = 0.5, width = 0.6, .width = 0, fill = "#D55E00") +
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  geom_jitter(width = 0.1, alpha = 0.2) +
+  labs(title = "Raincloud Plot: General Problems by PTSD Diagnosis",
+       x = "PTSD Diagnosis",
+       y = "General Problems") +
+  theme_minimal()
+```
+
+## EXAMPLE CODE as used for advanced graphics demonstration - not replicable as part of journal submission under review
+
+## Normative Comparisons t-test ##
+
+### Compare HiTOP Scale Scores to Norms ###
+
+
+```{r}
+psych_norms <- read_xlsx("Psych_norms.xlsx")
+# Convert necessary columns to numeric (if they aren't already)
+psych_norms$Current.M <- as.numeric(psych_norms$'Current M')
+psych_norms$Current.SD <- as.numeric(psych_norms$'Current SD')
+psych_norms$n <- as.numeric(psych_norms$n)
+
+psych_norms$M <- as.numeric(psych_norms$M)
+psych_norms$SD <- as.numeric(psych_norms$SD)
+psych_norms$General.Community.n <- as.numeric(psych_norms$'General Community n')
+
+# Initialize results dataframe
+t_tests_results <- data.frame(
+  scale = character(),
+  t_stat = numeric(),
+  p_value = numeric(),
+  effect_size = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (i in 1:nrow(psych_norms)) {
+  scale_name <- psych_norms$'Original Psychological Scale'[i]
+  
+  # Extract means, SDs, Ns (you need sample sizes!)
+  M1 <- psych_norms$Current.M[i]
+  SD1 <- psych_norms$Current.SD[i]
+  N1 <- psych_norms$n[i]  # make sure you have this column
+  
+  M2 <- psych_norms$M[i]
+  SD2 <- psych_norms$SD[i]
+  N2 <- psych_norms$General.Community.n[i]  # make sure you have this column
+  
+  # Skip if missing any necessary value
+  if (any(is.na(c(M1, SD1, N1, M2, SD2, N2)))) {
+    next
+  }
+  
+  # Calculate Welch's t statistic
+  se_diff <- sqrt((SD1^2 / N1) + (SD2^2 / N2))
+  t_stat <- (M1 - M2) / se_diff
+  
+  # Calculate degrees of freedom
+  df_num <- (SD1^2 / N1 + SD2^2 / N2)^2
+  df_denom <- ((SD1^2 / N1)^2 / (N1 - 1)) + ((SD2^2 / N2)^2 / (N2 - 1))
+  df <- df_num / df_denom
+  
+  # Calculate two-tailed p-value
+  p_value <- 2 * pt(-abs(t_stat), df)
+  
+  # Cohen's d (pooled SD)
+  pooled_sd <- sqrt((SD1^2 + SD2^2) / 2)
+  d <- (M1 - M2) / pooled_sd
+  
+  # Append results
+  t_tests_results <- rbind(t_tests_results, data.frame(
+    scale = scale_name,
+    t_stat = round(t_stat, 2),
+    p_value = round(p_value, 4),
+    effect_size = round(d, 2),
+    stringsAsFactors = FALSE
+  ))
+}
+
+# Format p-values: bold if significant
+t_tests_results$formatted_p_value <- ifelse(t_tests_results$p_value < 0.05,
+                                           paste0("**", t_tests_results$p_value, "**"),
+                                           as.character(t_tests_results$p_value))
+
+# Print results
+print(t_tests_results)
+
+# Create a new column to color the effect sizes based on their sign
+t_tests_results$effect_size_color <- ifelse(t_tests_results$effect_size > 0, 'red', 'blue')
+
+# Save to CSV if desired
+write.csv(t_tests_results, "t_tests_results.csv", row.names = FALSE)
+
+
+
+# Assign fill colors with grey for non-significant
+t_tests_results$effect_size_color <- ifelse(
+  t_tests_results$p_value < 0.05,
+  ifelse(t_tests_results$effect_size > 0, "red", "blue"),
+  "grey"
+)
+
+# Order scales by effect size (descending)
+t_tests_results$scale <- factor(t_tests_results$scale, levels = t_tests_results$scale[order(t_tests_results$effect_size, decreasing = FALSE)])
+
+# Plot
+norms_comp <- ggplot(t_tests_results, aes(x = effect_size, y = scale, fill = effect_size_color)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("red" = "red", "blue" = "blue", "grey" = "grey")) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    x = "Cohen's d",
+    y = NULL
+  ) +
+  geom_text(aes(label = formatted_p_value, x = effect_size + 0.1),
+            hjust = 0, size = 3.5, color = "black") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 10),
+    axis.title.x = element_text(size = 12),
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 10)
+  )
+ggsave("norms_comp_plot.pdf", plot = norms_comp, width = 8, height = 6)
+
+norms_comp
+```
+
+
+## CORRELATION ANALYSES ##
+
+### Calculate correlations between BTACT and HiTOP dimensions and display these simultaneously using a heatmap ### 
+
+package: pheatmap
+
+
+```{r}
+df_HiTOP_new_z$Worst_GCS <- df_HiTOP_new_z$`Worst GCS`
+# Define the BTACT and HiTOP dimensions
+btact_vars <- c("btact_composite_standardized","episodic_memory_standardized", "executive_function_standardized",  "btact_wordlist_total_z", "btact_delaywordlist_total_z", 
+                 "btact_digitsbackwards_z", "btact_bkwdcount_digits_z", "btact_catflu_total_z", 
+                "btact_numberreasoning_z")  # Added new composite variables #, "age", "years_education", "years_postinj", "pta","Worst_GCS
+
+df_HiTOP_new_z$year
+brief_vars <- c("BRI_T", "MI_T", "GEC_T")
+
+predictor_vars <- c("episodic_memory_standardized", "executive_function_standardized", "btact_composite_standardized", "btact_wordlist_total_z", "btact_delaywordlist_total_z", "btact_digitsbackwards_z", "btact_bkwdcount_digits_z", "btact_catflu_total_z", "btact_numberreasoning_z", "BRI_T", "MI_T", "GEC_T")
+
+# Initialize a list to store results
+cor_results <- list()
+
+# Perform correlations between pairs of variables
+for (btact in btact_vars) {
+  for (hitop in hitop_vars) {
+    for (brief in brief_vars) {
+      # Perform correlation test between BTact and Hitop variable
+      result <- cor.test(df_HiTOP_new_z[[btact]], df_HiTOP_new_z[[hitop]], use = "complete.obs")
+      
+      # Store the results in the list with descriptive names
+      cor_results[[paste(btact, hitop, "cor", sep = "_")]] <- list(
+        estimate = result$estimate,
+        p.value = result$p.value,
+        conf.int = result$conf.int
+      )
+      
+      # Perform correlation test between BTact and Brief variable
+      result_brief <- cor.test(df_HiTOP_new_z[[btact]], df_HiTOP_new_z[[brief]], use = "complete.obs")
+      
+      # Store the results in the list with descriptive names
+      cor_results[[paste(btact, brief, "cor", sep = "_")]] <- list(
+        estimate = result_brief$estimate,
+        p.value = result_brief$p.value,
+        conf.int = result_brief$conf.int
+      )
+      
+      # Perform correlation test between Hitop and Brief variable
+      result_hitop_brief <- cor.test(df_HiTOP_new_z[[hitop]], df_HiTOP_new_z[[brief]], use = "complete.obs")
+      
+      # Store the results in the list with descriptive names
+      cor_results[[paste(hitop, brief, "cor", sep = "_")]] <- list(
+        estimate = result_hitop_brief$estimate,
+        p.value = result_hitop_brief$p.value,
+        conf.int = result_hitop_brief$conf.int
+      )
+    }
+  }
+}
+
+# Convert the results list into a data frame for easier viewing
+cor_results_df <- do.call(rbind, lapply(cor_results, function(x) data.frame(
+  estimate = x$estimate, 
+  p.value = x$p.value, 
+  conf.int_lower = x$conf.int[1], 
+  conf.int_upper = x$conf.int[2]
+)))
+
+# Add a column with the names of the tests (from the list)
+cor_results_df$test_name <- rownames(cor_results_df)
+
+# Print the correlation results
+print(cor_results_df)
+
+# Export results to a CSV file
+write.csv(cor_results_df, "correlation_results.csv", row.names = FALSE)
+
+
+# Extract correlation estimates from the cor_results list
+cor_matrix <- sapply(cor_results, function(x) x$estimate)
+
+# Reshape the correlation estimates into a matrix form
+cor_matrix <- matrix(cor_matrix, 
+                     nrow = length(btact_vars), 
+                     ncol = length(hitop_vars), 
+                     byrow = TRUE)
+
+# Set row and column names to match the variable names
+rownames(cor_matrix) <- btact_vars
+colnames(cor_matrix) <- hitop_vars
+
+# Optional: Round the correlation values for cleaner visualization
+cor_matrix_rounded <- round(cor_matrix, 2)
+
+# View the correlation matrix
+print(cor_matrix_rounded)
+
+# Load the pheatmap package
+library(pheatmap)
+
+# Plot the heatmap using pheatmap
+pheatmap(cor_matrix_rounded, 
+         scale = "none",   # Do not scale the data
+         cluster_rows = FALSE,   # Cluster the rows (BTact variables)
+         cluster_cols = FALSE,   # Cluster the columns (HiTOP variables)
+         color = colorRampPalette(c("blue", "white", "red"))(100),  # Custom color palette
+         main = "Heatmap of Correlations between BTACT Cognitive Domains and HiTOP Dimensions and Covariates")
+
+```
+
+# Results summary plot with nice labelling 
+
+```{r}
+
+
+hitop_labels <- c(
+  "g6_composite_score" = "Self-Harm and Psychoticism",
+  "g4_composite_score" = "Rigid Constraint",
+  "g3_composite_score" = "Compensatory and Phobic Reactions",
+  "b2_composite_score" = "Externalising Problems",
+  "a1_composite_score" = "General Problems"
+)
+filtered <- filtered %>%
+  mutate(
+    hitop_var = recode(hitop_var, !!!hitop_labels),
+    hitop_var = factor(hitop_var, levels = hitop_labels)  # optional: preserves label order
+  )
+btact_labels <- c(
+  "btact_composite_standardized"     = "Global Cognitive Functioning",
+  "episodic_memory_standardized"     = "Episodic Memory",
+  "executive_function_standardized"  = "Executive Function",
+  "btact_wordlist_total_z"           = "Verbal Encoding",
+  "btact_delaywordlist_total_z"      = "Verbal Delayed Memory",
+  "btact_digitsbackwards_z"          = "Digits Backwards",
+  "btact_bkwdcount_digits_z"         = "Backward Counting",
+  "btact_catflu_total_z"             = "Category Fluency",
+  "btact_numberreasoning_z"          = "Number Reasoning"
+)
+
+library(stringr)
+filtered <- filtered %>%
+  mutate(
+    btact_var = recode(btact_var, !!!btact_labels),
+    btact_var = factor(btact_var, levels = btact_labels)
+  )
+
+filtered <- filtered %>%
+  mutate(
+    btact_var = str_wrap(btact_var, width = 20),
+    hitop_var = str_wrap(hitop_var, width = 20)
+  )
+
+
+
+filtered <- filtered %>%
+  mutate(
+    btact_var = gsub("_", " ", btact_var),
+    hitop_var = gsub("_", " ", hitop_var)
+  )
+
+
+
+library(ggplot2)
+
+ggplot(filtered, aes(x = btact_var, y = hitop_var)) +
+  geom_point(aes(size = abs(estimate), fill = estimate), shape = 21, color = "black") +
+  scale_fill_gradient2(
+    low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0, name = "Estimate"
+  ) +
+  scale_size_continuous(range = c(3, 10), name = "|Estimate|") +
+  labs(
+    title = "Key Cognitive–HiTOP Associations",
+    subtitle = "Filtered by p < .05 (uncorrected)",
+    x = "Cognitive Measure",
+    y = "HiTOP Dimension"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 11),
+    strip.text = element_text(face = "bold")
+  )
+
+ggsave(
+  filename = "hitop_btact_plot.png",
+  plot = last_plot(),       # or name your plot object, e.g., plot = my_plot
+  width = 10, height = 8,   # in inches
+  dpi = 300                 # 300+ dpi is standard for print
+)
+
+```
+
+
+
+
+## Network plot - for interactive tool see the VisNetwork documentation online ## 
+
+```{r}
+library(igraph)
+library(dplyr)
+
+# Prepare edges from your filtered data
+# Use estimate for edge weight and sign for color
+edges_df <- filtered %>%
+  select(btact_var, hitop_var, estimate) %>%
+  rename(from = btact_var, to = hitop_var, weight = estimate)
+
+# Create a vector of unique nodes (all cognitive + HiTOP)
+nodes <- unique(c(edges_df$from, edges_df$to))
+
+# Create graph
+g <- graph_from_data_frame(d = edges_df, vertices = nodes, directed = FALSE)
+
+# Define edge colors based on sign of estimate
+E(g)$color <- ifelse(E(g)$weight > 0, "red", "blue")
+
+# Use absolute value of estimate for edge width (scaled)
+E(g)$width <- scales::rescale(abs(E(g)$weight), to = c(1, 6))
+
+# Assign colors to nodes to distinguish groups (cognitive vs HiTOP)
+V(g)$color <- ifelse(V(g)$name %in% edges_df$from, "tomato", "skyblue")
+
+# Plot with layout that groups nodes by type
+layout <- layout_with_fr(g)
+
+plot(g,
+     layout = layout,
+     vertex.size = 30,
+     vertex.label.cex = 0.8,
+     vertex.label.color = "black",
+     vertex.frame.color = "gray50",
+     main = "Network Plot: Cognitive Measures and HiTOP Dimensions"
+)
+```
+
+
+Thank you! 
+alexia.samiotis1@monash.edu
