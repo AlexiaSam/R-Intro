@@ -351,6 +351,13 @@ geom_histogram	creates a histogram layer
 geom_boxplot	creates a box-whisker diagram
 geom_density	applies a density plot layer
 
+## Insightful Decisions: Choosing the Right Chart ##
+
+Trends → Line chart/geom_smooth
+Comparisons → Bar chart
+Relationships → Scatterplot
+Distribution → Histogram / Density
+
 ## Basic Scatterplot with Aesthetics ##
 geom_point
 
